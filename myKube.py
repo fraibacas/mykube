@@ -16,21 +16,24 @@ JOIN_CMD_MATCHER = "kubeadm join --token"
 CAT_KUBECTL_CONFIG = "sudo cat /etc/kubernetes/admin.conf"
 CALICO_CMD = "kubectl apply -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml"
 WEAVE_CMD = "kubectl apply -f https://git.io/weave-kube-1.6"
-DASHBOARD_CMD = "kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml"
+# need to install an older version of the dashboard to get it to work without certs
+#DASHBOARD_CMD = "kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml"
+DASHBOARD_CMD = "kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.6.3/src/deploy/kubernetes-dashboard.yaml" 
 DELETE_NODE_CMD = "kubectl delete node {}"
 DRAIN_NODE_CMD = "kubectl drain {} --delete-local-data --force --ignore-daemonsets"
 GET_NODES_CMD = "kubectl get nodes"
-GET_PODS_CMD = "kubectl get pods --all-namespaces"
+GET_PODS_CMD = "kubectl get pods --all-namespaces -o wide"
+
+DASHBOARD_URL = "http://localhost:8001/api/v1/namespaces/kube-system/services/http:kubernetes-dashboard:/proxy"
 
 JOIN_CMD_FILE = "./.join_cmd.txt"
 
-def execute_command(command, debug=True):
+def execute_command(command, debug=False):
     """
     Params: command to execute
     Return: tuple containing the stout and stderr of the command execution
     """
-    if debug:
-        print 'Executing ....' + command
+    print 'Executing ....' + command
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     if debug:
@@ -126,9 +129,16 @@ class KubeCluster(object):
         out, err = execute_command(cmd)
 
     def _install_dashboard(self):
+        # https://github.com/kubernetes/dashboard/wiki/Accessing-Dashboard---1.7.X-and-above
+        # https://github.com/kubernetes/dashboard/wiki/Access-control#authorization-header
+        # Use an older version of the dasboard to avoid issues
+        # https://stackoverflow.com/questions/46411598/kubernetes-dashboard-serviceunavailable-503-error
+        #
         print_header("Installing Kubernetes dashboard")
         cmd = "vagrant ssh {} -c '{}'".format(self.master, DASHBOARD_CMD)
         out, err = execute_command(cmd)
+        print_yellow("Kubernetes Dashboard installed")
+        print_yellow("To run it execute 'kubectl proxy' and go to {}".format(DASHBOARD_URL))
 
     def start_master(self):
         join_cmd = self._start_master()
@@ -138,9 +148,8 @@ class KubeCluster(object):
             self._set_up_kubectl()
             # add calico
             self._install_calico()
-            #self._install_weave()
             time.sleep(5)
-            #self._install_dashboard()
+            self._install_dashboard()
         # save the join cmd to a file
         with open(JOIN_CMD_FILE, "w") as f:
             f.write(join_cmd)
@@ -173,10 +182,10 @@ class KubeCluster(object):
         print_header("Stopping cluster...")
         nodes = [ self.master ]
         nodes.extend(self.workers)
-        for node in nodes:
-            drain_cmd = DRAIN_NODE_CMD.format(node)
-            delete_cmd = DELETE_NODE_CMD.format(node)
-            out, err = execute_command("{} && {}".format(drain_cmd, delete_cmd))
+        #for node in nodes:
+        #    drain_cmd = DRAIN_NODE_CMD.format(node)
+        #    delete_cmd = DELETE_NODE_CMD.format(node)
+        #    out, err = execute_command("{} && {}".format(drain_cmd, delete_cmd))
         for node in nodes:
             out, err = execute_command("vagrant ssh {} -c '{}'".format(node, NODE_TEARDOWN))
 
@@ -185,7 +194,7 @@ def main(options):
     cluster = KubeCluster(MASTER, WORKERS)
     if options.action == "start-cluster":
         cluster.start()
-    elif options.action == "stop-cluster":
+    elif options.action in [ "stop-cluster", "stop" ]:
         cluster.stop()
     elif options.action == "start-master":
         cluster.start_master()
@@ -198,7 +207,7 @@ def main(options):
 
 def parse_options():
     parser = argparse.ArgumentParser(description="Start/Stop a kubenetes cluster configured with vagrant", formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("action", type=str, choices=['start-cluster', 'stop-cluster', 'checks', "start-master", "start-workers"], help="Action to perform")
+    parser.add_argument("action", type=str, choices=['stop', 'stop-cluster', 'checks', "start-master", "start-workers"], help="Action to perform")
     return parser.parse_args()
 
 
@@ -207,8 +216,3 @@ if __name__ == "__main__":
     options = parse_options()
     print("{} called with options {}\n".format(sys.argv[0], options))
     main(options)
-
-
-
-#kubectl cluster info
-#journalctl -xeu kubelet

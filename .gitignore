@@ -1,3 +1,4 @@
 *.pyc
 *.log
 .vagrant
+.join_cmd.txt
