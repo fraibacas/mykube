@@ -2,22 +2,26 @@
 import argparse
 import os
 import subprocess
+import time
 
 
-MASTER = "kube-master"
-WORKERS = [ "kube-worker-1", "kube-worker-2" ]
+MASTER = "kmaster"
+WORKERS = [ "kworker1", "kworker2" ]
+MASTER_IP = "192.168.33.10"
 
-
-MASTER_SETUP  = '/usr/bin/sudo bash -c "kubeadm reset && kubeadm init --pod-network-cidr 10.10.10.0/24 --service-cidr 10.96.0.0/12 --service-dns-domain \"zing.loc\" --apiserver-advertise-address 10.10.10.10"'
+MASTER_SETUP  = '/usr/bin/sudo bash -c "kubeadm reset && kubeadm init --apiserver-advertise-address 192.168.33.10 --pod-network-cidr 10.244.0.0/16"'
 WORKER_SETUP  = '/usr/bin/sudo bash -c "kubeadm reset && {}"'
 NODE_TEARDOWN = '/usr/bin/sudo bash -c "kubeadm reset"'
 JOIN_CMD_MATCHER = "kubeadm join --token"
 CAT_KUBECTL_CONFIG = "sudo cat /etc/kubernetes/admin.conf"
-CALICO_CMD = "kubectl apply -f http://docs.projectcalico.org/v2.3/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml"
+CALICO_CMD = "kubectl apply -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml"
+WEAVE_CMD = "kubectl apply -f https://git.io/weave-kube-1.6"
 DELETE_NODE_CMD = "kubectl delete node {}"
 DRAIN_NODE_CMD = "kubectl drain {} --delete-local-data --force --ignore-daemonsets"
 GET_NODES_CMD = "kubectl get nodes"
 GET_PODS_CMD = "kubectl get pods --all-namespaces"
+
+JOIN_CMD_FILE = "./.join_cmd.txt"
 
 def execute_command(command, debug=True):
     """
@@ -96,7 +100,12 @@ class KubeCluster(object):
         """
         Copy the kubectl config in the local machine from the master
         """
-        print_header("Setting up kubectl config in your system...")
+        print_header("Setting up kubectl config...")
+        # set kubectl config in master vm
+        vm_command = "mkdir -p ~/.kube && {} > ~/.kube/config".format(CAT_KUBECTL_CONFIG)
+        command = "vagrant ssh {} -c '{}'".format(self.master, vm_command)
+        out, err = execute_command(command)
+        # set kubectl config in local host
         command = "vagrant ssh {} -c '{}'".format(self.master, CAT_KUBECTL_CONFIG)
         out, err = execute_command(command)
         if "certificate-authority-data" in out:
@@ -106,18 +115,42 @@ class KubeCluster(object):
 
     def _install_calico(self):
         print_header("Configuring cluster network to use Calico")
-        out, err = execute_command(CALICO_CMD)
+        cmd = "vagrant ssh {} -c '{}'".format(self.master, CALICO_CMD)
+        out, err = execute_command(cmd)
 
-    def start(self):
-        # Start the master
+    def _install_weave(self):
+        print_header("Configuring cluster network to use Weave")
+        cmd = "vagrant ssh {} -c '{}'".format(self.master, WEAVE_CMD)
+        out, err = execute_command(cmd)
+
+    def start_master(self):
         join_cmd = self._start_master()
+        time.sleep(5)
         if join_cmd:
             # update local kubectl config with the new master
             self._set_up_kubectl()
+            # add calico
+            #self._install_calico()
+            self._install_weave()
+        # save the join cmd to a file
+        with open(JOIN_CMD_FILE, "w") as f:
+            f.write(join_cmd)
+        return join_cmd
+
+    def start_workers(self, join_cmd=None):
+        if not join_cmd:
+            with open(JOIN_CMD_FILE, "r") as f:
+                join_cmd = f.read()
+            self._start_workers(join_cmd)
+
+    def start(self):
+        # Start the master
+        join_cmd = self.start_master()
+
+        if join_cmd:
             # get the workers to join the master
             self._start_workers(join_cmd)
-            # add calico
-            self._install_calico()
+            #self._install_calico()
             # current issues:
                 # - calico pods CrashLoopBackOff
                 # kube-dns fails first time
@@ -151,6 +184,10 @@ def main(options):
         cluster.start()
     elif options.action == "stop-cluster":
         cluster.stop()
+    elif options.action == "start-master":
+        cluster.start_master()
+    elif options.action == "start-workers":
+        cluster.start_workers()
     elif options.action == "checks":
         cluster.print_nodes()
         cluster.print_pods()
@@ -158,7 +195,7 @@ def main(options):
 
 def parse_options():
     parser = argparse.ArgumentParser(description="Start/Stop a kubenetes cluster configured with vagrant", formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("action", type=str, choices=['start-cluster', 'stop-cluster', 'checks'], help="Action to perform")
+    parser.add_argument("action", type=str, choices=['start-cluster', 'stop-cluster', 'checks', "start-master", "start-workers"], help="Action to perform")
     return parser.parse_args()
 
 
@@ -168,3 +205,7 @@ if __name__ == "__main__":
     print("{} called with options {}\n".format(sys.argv[0], options))
     main(options)
 
+
+
+#kubectl cluster info
+#journalctl -xeu kubelet
