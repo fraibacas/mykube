@@ -107,6 +107,7 @@ class KubeCluster(object):
         command = "vagrant ssh {} -c '{}'".format(self.master, vm_command)
         out, err = execute_command(command)
         # set kubectl config in local host
+        execute_command("mkdir -p ~/.kube")
         command = "vagrant ssh {} -c '{}'".format(self.master, CAT_KUBECTL_CONFIG)
         out, err = execute_command(command)
         if "certificate-authority-data" in out:
