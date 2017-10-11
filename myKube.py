@@ -16,6 +16,7 @@ JOIN_CMD_MATCHER = "kubeadm join --token"
 CAT_KUBECTL_CONFIG = "sudo cat /etc/kubernetes/admin.conf"
 CALICO_CMD = "kubectl apply -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml"
 WEAVE_CMD = "kubectl apply -f https://git.io/weave-kube-1.6"
+DASHBOARD_CMD = "kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml"
 DELETE_NODE_CMD = "kubectl delete node {}"
 DRAIN_NODE_CMD = "kubectl drain {} --delete-local-data --force --ignore-daemonsets"
 GET_NODES_CMD = "kubectl get nodes"
@@ -123,6 +124,11 @@ class KubeCluster(object):
         cmd = "vagrant ssh {} -c '{}'".format(self.master, WEAVE_CMD)
         out, err = execute_command(cmd)
 
+    def _install_dashboard(self):
+        print_header("Installing Kubernetes dashboard")
+        cmd = "vagrant ssh {} -c '{}'".format(self.master, DASHBOARD_CMD)
+        out, err = execute_command(cmd)
+
     def start_master(self):
         join_cmd = self._start_master()
         time.sleep(5)
@@ -130,8 +136,10 @@ class KubeCluster(object):
             # update local kubectl config with the new master
             self._set_up_kubectl()
             # add calico
-            #self._install_calico()
-            self._install_weave()
+            self._install_calico()
+            #self._install_weave()
+            time.sleep(5)
+            #self._install_dashboard()
         # save the join cmd to a file
         with open(JOIN_CMD_FILE, "w") as f:
             f.write(join_cmd)
@@ -148,13 +156,7 @@ class KubeCluster(object):
         join_cmd = self.start_master()
 
         if join_cmd:
-            # get the workers to join the master
             self._start_workers(join_cmd)
-            #self._install_calico()
-            # current issues:
-                # - calico pods CrashLoopBackOff
-                # kube-dns fails first time
-                    # kubectl scale deployment --replicas=1 kube-dns --namespace=kube-system
             self.print_nodes()
             self.print_pods()
 
