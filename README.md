@@ -1,4 +1,5 @@
 # mykube
+
 Creates a 3 node (master + 2 workers) kubernetes cluster in VirtualBox using Vagrant
 
 Tested on VirtualBox 5.1.28 and Vagrant 2.0
@@ -57,6 +58,7 @@ kube-system   kube-proxy-tzsjg                           1/1       Running   0  
 kube-system   kube-scheduler-kmaster                     1/1       Running   0          3m        192.168.33.10   kmaster
 ```
 
+# Network POC
 The network poc has the following structure:
 
               edge(nginx)
