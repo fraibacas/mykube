@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 import argparse
 import os
@@ -27,6 +28,9 @@ GET_PODS_CMD = "kubectl get pods --all-namespaces -o wide"
 DASHBOARD_URL = "http://localhost:8001/api/v1/namespaces/kube-system/services/http:kubernetes-dashboard:/proxy"
 
 JOIN_CMD_FILE = "./.join_cmd.txt"
+
+# Grant super-user access to all service accounts cluster-wide (strongly discouraged)
+BYPASS_RBAC_SVC_ACCOUNTS = "kubectl create clusterrolebinding serviceaccounts-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts"
 
 def execute_command(command, debug=False):
     """
@@ -111,22 +115,23 @@ class KubeCluster(object):
         out, err = execute_command(command)
         # set kubectl config in local host
         execute_command("mkdir -p ~/.kube")
-        command = "vagrant ssh {} -c '{}'".format(self.master, CAT_KUBECTL_CONFIG)
-        out, err = execute_command(command)
+        out, err = self._run_in_master(CAT_KUBECTL_CONFIG)
         if "certificate-authority-data" in out:
             with open("{}/.kube/config".format(os.getenv("HOME")), "w") as f:
                 f.write(out)
             print "Kubectl configured!"
 
+    def _run_in_master(self, cmd):
+        cmd = "vagrant ssh {} -c '{}'".format(self.master, cmd)
+        return execute_command(cmd)
+
     def _install_calico(self):
         print_header("Configuring cluster network to use Calico")
-        cmd = "vagrant ssh {} -c '{}'".format(self.master, CALICO_CMD)
-        out, err = execute_command(cmd)
+        out, err = self._run_in_master(CALICO_CMD)
 
     def _install_weave(self):
         print_header("Configuring cluster network to use Weave")
-        cmd = "vagrant ssh {} -c '{}'".format(self.master, WEAVE_CMD)
-        out, err = execute_command(cmd)
+        out, err = self._run_in_master(WEAVE_CMD)
 
     def _install_dashboard(self):
         # https://github.com/kubernetes/dashboard/wiki/Accessing-Dashboard---1.7.X-and-above
@@ -135,10 +140,13 @@ class KubeCluster(object):
         # https://stackoverflow.com/questions/46411598/kubernetes-dashboard-serviceunavailable-503-error
         #
         print_header("Installing Kubernetes dashboard")
-        cmd = "vagrant ssh {} -c '{}'".format(self.master, DASHBOARD_CMD)
-        out, err = execute_command(cmd)
+        out, err = self._run_in_master(DASHBOARD_CMD)
         print_yellow("Kubernetes Dashboard installed")
         print_yellow("To run it execute 'kubectl proxy' and go to {}".format(DASHBOARD_URL))
+
+    def _bypass_rbac_for_service_accounts_for_now(self):
+        print_header("Granting super-user access to all service accounts cluster-wide (strongly discouraged)")
+        out, err = self._run_in_master(BYPASS_RBAC_SVC_ACCOUNTS)
 
     def start_master(self):
         join_cmd = self._start_master()
@@ -150,6 +158,7 @@ class KubeCluster(object):
             self._install_calico()
             time.sleep(5)
             self._install_dashboard()
+            self._bypass_rbac_for_service_accounts_for_now()
         # save the join cmd to a file
         with open(JOIN_CMD_FILE, "w") as f:
             f.write(join_cmd)
