@@ -56,3 +56,54 @@ kube-system   kube-proxy-9fk9m                           1/1       Running   0  
 kube-system   kube-proxy-tzsjg                           1/1       Running   0          1m        192.168.33.30   kworker2
 kube-system   kube-scheduler-kmaster                     1/1       Running   0          3m        192.168.33.10   kmaster
 ```
+
+The network poc has the following structure:
+
+              edge(nginx)
+                  |
+                  |
+               Traefik
+               /  |  \
+              /   |   \
+             /    |    \
+            /     |     \
+    model-ingest  |   data-pipeline
+                  |
+            authorization
+
+model-ingest, authorization and data-pipeline are a python server that return the name of the service
+
+
+To run the network poc:
+
+```
+cd network-poc
+kubectl create configmap wrapper --from-file=server.py
+kubectl apply -f .
+```
+
+To validate routing:
+
+```
+- Get the edge port by executing kubectl get svc
+- Test the following routes:
+    - http://kmaster_ip:edge_port/api/authorization
+    - http://kmaster_ip:edge_port/api/model-ingest
+    - http://kmaster_ip:edge_port/api/data-pipeline
+```
+
+Example on how to retrieve ports:
+
+```
+dev:~/mykube$ kubectl get svc
+NAME                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                       AGE
+authorization             NodePort    10.98.207.129    <none>        8000:32409/TCP                17m
+data-pipeline             NodePort    10.105.130.251   <none>        8000:32126/TCP                17m
+edge                      NodePort    10.102.100.7     <none>        80:31076/TCP                  17m
+kubernetes                ClusterIP   10.96.0.1        <none>        443/TCP                       6h
+model-ingest              NodePort    10.100.110.158   <none>        8000:31151/TCP                17m
+traefik-ingress-service   NodePort    10.96.167.79     <none>        80:32684/TCP,8080:30822/TCP   17m
+traefik-web-ui            NodePort    10.107.219.87    <none>        80:32692/TCP                  17m
+
+edge port is 31076 and traefik-web-ui 32692
+```
