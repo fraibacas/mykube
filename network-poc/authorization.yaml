@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+    name: authorization
+    labels:
+        app: authorization
+spec:
+    ports:
+    - port: 8000
+      targetPort: 8000
+    type: NodePort
+    selector:
+        app: authorization
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+    name: authorization
+spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: authorization
+    template:
+        metadata:
+          labels:
+            app: authorization
+            tier: authorization
+        spec:
+            containers:
+            - name: authorization
+              image: eamonwoortman/alpine-python-curl-zip
+              command: ["python"]
+              args: ["./server.py"]
+              env:
+                - name: MICROSERVICE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: authorization-env
+                      key: svc.name
+              workingDir: /server
+              ports:
+              - containerPort: 8000
+              volumeMounts:
+              - mountPath: /server
+                name: wrapper
+            volumes:
+            - name: wrapper
+              configMap:
+                name: wrapper
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authorization-env
+  namespace: default
+data:
+  svc.name: authorization

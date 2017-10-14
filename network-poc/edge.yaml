@@ -1,0 +1,51 @@
+---
+apiVersion: v1
+kind: Service
+metadata: 
+  name: edge
+spec:
+  type: NodePort
+  ports: 
+  - port: 80
+    targetPort: 80
+  selector:
+    app: edge
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  default.conf: |-
+        server {
+            listen 80;
+            location / {
+                add_header 'Cache-Control' 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+                expires off;
+                proxy_pass http://traefik-ingress-service:80;
+            }
+        }
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: edge
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: edge
+    spec:
+      containers:
+        - name: nginx
+          image: rstarmer/nginx-curl
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx/conf.d
+      volumes:
+      - name: config-volume
+        configMap:
+          name: nginx-config

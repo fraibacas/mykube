@@ -1,0 +1,74 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik-ingress-service
+spec:
+  type: NodePort
+  selector:
+    k8s-app: traefik-ingress-lb
+  ports:
+  - protocol: TCP
+    port: 80
+    name: web
+  - protocol: TCP
+    port: 8080
+    name: admin
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik-web-ui
+spec:
+  type: NodePort
+  selector:
+    k8s-app: traefik-ingress-lb
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+kind: Deployment
+apiVersion: apps/v1beta2
+metadata:
+  name: traefik-ingress-controller
+  labels:
+    k8s-app: traefik-ingress-lb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: traefik-ingress-lb
+  template:
+    metadata:
+      labels:
+        k8s-app: traefik-ingress-lb
+        name: traefik-ingress-lb
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - image: traefik:1.4
+        name: traefik-ingress-lb
+        args: ["--web", "--kubernetes"]
+---
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata: 
+  name: traefik
+  annotations: 
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - http: 
+      paths:
+      - path: /api/model-ingest
+        backend: 
+          serviceName: model-ingest
+          servicePort: 8000
+      - path: /api/authorization
+        backend: 
+          serviceName: authorization
+          servicePort: 8000
+      - path: /api/data-pipeline
+        backend: 
+          serviceName: data-pipeline
+          servicePort: 8000

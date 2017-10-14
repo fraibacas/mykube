@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+    name: model-ingest
+    labels:
+        app: model-ingest
+spec:
+    ports:
+    - port: 8000
+      targetPort: 8000
+    type: NodePort
+    selector:
+        app: model-ingest
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+    name: model-ingest
+spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: model-ingest
+    template:
+        metadata:
+          labels:
+            app: model-ingest
+            tier: model-ingest
+        spec:
+            containers:
+            - name: model-ingest
+              image: eamonwoortman/alpine-python-curl-zip
+              command: ["python"]
+              args: ["./server.py"]
+              env:
+                - name: MICROSERVICE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: model-ingest-env
+                      key: svc.name
+              workingDir: /server
+              ports:
+              - containerPort: 8000
+              volumeMounts:
+              - mountPath: /server
+                name: wrapper
+            volumes:
+            - name: wrapper
+              configMap:
+                name: wrapper
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-ingest-env
+  namespace: default
+data:
+  svc.name: model-ingest
