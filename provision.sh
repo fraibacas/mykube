@@ -20,11 +20,17 @@ apt-get install nfs-common -y  > /dev/null 2>&1
 mkdir -p ${NFS_FOLDER}
 chmod 777 ${NFS_FOLDER}
 
+# insecure registry
+sed -i '/^ExecStart/s/$/ --insecure-registry registry.zing.zenoss.eng/' /lib/systemd/system/docker.service
+systemctl daemon-reload
+systemctl restart docker
+
 if [ $1 = "master" ]; then
     apt-get install -y nfs-kernel-server > /dev/null 2>&1
     echo "${NFS_FOLDER} *(rw,sync,no_root_squash)" >> /etc/exports
     systemctl restart nfs-kernel-server
 else
+    # nfs mounts
     mount ${MASTER_IP}:${NFS_FOLDER} ${NFS_FOLDER}
     echo "${MASTER_IP}:${NFS_FOLDER} ${NFS_FOLDER} nfs rw,hard,intr 0 0" >> /etc/fstab
 fi
