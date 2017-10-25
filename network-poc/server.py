@@ -22,7 +22,7 @@ class testHTTPServer_RequestHandler(BaseHTTPRequestHandler):
         return
  
 def run():
-  server_address = ('0.0.0.0', 8000)
+  server_address = ('0.0.0.0', 80)
   httpd = HTTPServer(server_address, testHTTPServer_RequestHandler)
   print('running server...')
   httpd.serve_forever()

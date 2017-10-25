@@ -43,6 +43,7 @@ spec:
       labels:
         k8s-app: traefik-ingress-lb
         name: traefik-ingress-lb
+        tier: service-gw
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -63,12 +64,12 @@ spec:
       - path: /api/model-ingest
         backend: 
           serviceName: model-ingest
-          servicePort: 8000
+          servicePort: 80
       - path: /api/authorization
         backend: 
           serviceName: authorization
-          servicePort: 8000
+          servicePort: 80
       - path: /api/data-pipeline
         backend: 
           serviceName: data-pipeline
-          servicePort: 8000
+          servicePort: 80

@@ -1,0 +1,91 @@
+# By default deny any ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector:
+    matchLabels:
+  policyTypes:
+  - Ingress
+---
+# Allow all ingress traffic to edge
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-net-policy
+spec:
+  podSelector:
+    matchLabels:
+      tier: edge
+  ingress:
+  - {}
+---
+# allow tier:edge and tier: service to reach service-gw pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+    name: service-gw-net-policy-1
+spec:
+  podSelector:
+    matchLabels:
+      tier: service-gw
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            tier: service
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+    name: service-gw-net-policy-2
+spec:
+  podSelector:
+    matchLabels:
+      tier: service-gw
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            tier: edge
+---
+# Pods in the service tier can by reached by other pods in the service tier
+# and pods in the service-gw tier
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+    name: service-net-policy-1
+    namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      tier: service
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            tier: service
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+    name: service-net-policy-2
+    namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      tier: service
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            tier: service-gw

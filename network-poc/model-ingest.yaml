@@ -6,8 +6,8 @@ metadata:
         app: model-ingest
 spec:
     ports:
-    - port: 8000
-      targetPort: 8000
+    - port: 80
+      targetPort: 80
     type: NodePort
     selector:
         app: model-ingest
@@ -25,7 +25,7 @@ spec:
         metadata:
           labels:
             app: model-ingest
-            tier: model-ingest
+            tier: service
         spec:
             containers:
             - name: model-ingest
@@ -40,14 +40,14 @@ spec:
                       key: svc.name
               workingDir: /server
               ports:
-              - containerPort: 8000
+              - containerPort: 80
               volumeMounts:
               - mountPath: /server
-                name: wrapper
+                name: nfs-share
             volumes:
-            - name: wrapper
-              configMap:
-                name: wrapper
+            - name: nfs-share
+              hostPath:
+                path: /opt/kdata
 ---
 apiVersion: v1
 kind: ConfigMap
