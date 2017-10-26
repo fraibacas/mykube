@@ -7,7 +7,8 @@ from collections import defaultdict
 
 EDGE = "edge"
 GW_SERVICE = "traefik-web-ui"
-SVC_TIER = [ "model-ingest", "data-pipeline", "authorization" ]
+SVC_TIER = [ "model-ingest", "authorization" ]
+BACK_TIER = [ "data-pipeline" ]
 
 SERVICES = SVC_TIER + [ EDGE ] + [ GW_SERVICE ]
 
@@ -22,7 +23,7 @@ for svc in SVC_TIER:
 
 class PodTypes(object):
     EDGE_POD = "edge"
-    GW_POD   = "traefik-ingress-controller"
+    GW_POD   = "gw_service"
     SVC_TIER_PODS = [ "model-ingest", "data-pipeline", "authorization" ]
     ALL_PODS = SVC_TIER_PODS + [ EDGE_POD ] + [ GW_POD ]
     ALLOWED_CONNECTIONS = {
@@ -80,8 +81,7 @@ class PodNetworkTests(unittest.TestCase):
         self.assertTrue(self.edge_port)
         for svc in SVC_TIER:
             url = "http://{}:{}/api/{}".format(MASTER_IP, self.edge_port, svc)
-            import pdb; pdb.set_trace()
-            resp = requests.get(url, timeout=1)
+            resp = requests.get(url, timeout=5)
             self.assertTrue(resp.ok)
             self.assertTrue(svc in resp.content)
             print "\033[95m{} is reachable via Edge.\033[0m".format(svc)
@@ -112,14 +112,14 @@ class PodNetworkTests(unittest.TestCase):
         """ Checks all pods can connect to all other pods """
         pods = self._get_pods()
         pod_names = pods.keys()
-        return
+        pod_names.sort()
         for from_pod_name in pod_names:
             for to_pod_name in pod_names:
                 to_pod = pods[to_pod_name]
                 from_pod = pods[from_pod_name]
                 # cant run kubectl from the traefik pod
-                if from_pod.pod_type == PodTypes.GW_POD:
-                    continue
+                #if from_pod.pod_type == PodTypes.GW_POD:
+                #    continue
                 cmd = "kubectl exec -it {} -- ping -c 1 -w 1 {}".format(from_pod_name, to_pod.ip)
                 out, err = execute_command(cmd)
                 success = False

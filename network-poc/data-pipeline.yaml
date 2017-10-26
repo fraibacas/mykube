@@ -56,3 +56,20 @@ metadata:
   namespace: default
 data:
   svc.name: data-pipeline
+---
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata: 
+  name: data-pipeline
+  annotations: 
+    kubernetes.io/ingress.class: traefik
+  labels:
+    ingress-tier: service
+spec:
+  rules:
+  - http: 
+      paths:
+      - path: /api/data-pipeline
+        backend: 
+          serviceName: data-pipeline
+          servicePort: 80

@@ -56,3 +56,20 @@ metadata:
   namespace: default
 data:
   svc.name: model-ingest
+---
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata: 
+  name: model-ingest
+  annotations: 
+    kubernetes.io/ingress.class: traefik
+  labels:
+    ingress-tier: service
+spec:
+  rules:
+  - http: 
+      paths:
+      - path: /api/model-ingest
+        backend: 
+          serviceName: model-ingest
+          servicePort: 80

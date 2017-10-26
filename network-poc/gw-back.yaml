@@ -1,0 +1,43 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: gw-back
+spec:
+  selector:
+    app: gw-back
+  ports:
+  - port: 8000
+    targetPort: 80
+    name: web
+  - port: 8080
+    name: admin
+
+---
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: gw-back
+  labels:
+    app: gw-back
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: gw-back
+        tier: back-gw
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: gw-back
+        image: 'traefik:1.2.3-alpine'
+        args:
+        - --web
+        - --kubernetes
+        - --kubernetes.labelselector=tier=back
+        - --loglevel=INFO
+        ports:
+        - containerPort: 80
+          name: web
+        - containerPort: 8080
+          name: admin

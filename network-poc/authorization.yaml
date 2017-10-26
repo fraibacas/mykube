@@ -57,3 +57,20 @@ metadata:
   namespace: default
 data:
   svc.name: authorization
+---
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata: 
+  name: authorization
+  annotations: 
+    kubernetes.io/ingress.class: traefik
+  labels:
+    ingress-tier: service
+spec:
+  rules:
+  - http: 
+      paths:
+      - path: /api/authorization
+        backend: 
+          serviceName: authorization
+          servicePort: 80

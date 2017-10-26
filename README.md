@@ -80,6 +80,7 @@ To run the network poc:
 
 ```
 cd network-poc
+vagrant scp server.py kmaster:/opt/kdata/.  (if vagrant-scp not installed: vagrant plugin install vagrant-scp)
 kubectl create configmap wrapper --from-file=server.py
 kubectl apply -f .
 ```

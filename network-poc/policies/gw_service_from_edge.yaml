@@ -1,0 +1,15 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+    name: service-gw-net-policy-2
+spec:
+  podSelector:
+    matchLabels:
+      tier: gw-service
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            tier: edge
